@@ -1,0 +1,166 @@
+-- USERS TABLE
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    uuid CHAR(36),
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    passwordHash VARCHAR(255),
+    role VARCHAR(20) CHECK (role IN ('admin','seller')),
+    status VARCHAR(20) CHECK (status IN ('active','inactive')),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--------------------------------------------------
+
+-- COUNTRIES MASTER TABLE
+CREATE TABLE countries (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL
+);
+
+--------------------------------------------------
+
+-- SELLERS TABLE
+CREATE TABLE sellers (
+    id BIGSERIAL PRIMARY KEY,
+    userId BIGINT,
+    countryOfOrigin BIGINT,
+    businessName VARCHAR(255),
+    companyEmail VARCHAR(255),
+    isEmailVerified BOOLEAN DEFAULT FALSE,
+    companyPhone VARCHAR(50),
+    companyWebsite VARCHAR(255),
+    socialLink JSONB,
+    profileComplete BOOLEAN DEFAULT FALSE,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fkSellerUser
+        FOREIGN KEY (userId)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fkSellerCountry
+        FOREIGN KEY (countryOfOrigin)
+        REFERENCES countries(id)
+);
+
+--------------------------------------------------
+
+-- SUBSCRIPTION PLANS
+CREATE TABLE subscriptionPlans (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    price DECIMAL(10,2),
+    currency CHAR(3),
+    durationMonths INT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--------------------------------------------------
+
+-- SELLER SUBSCRIPTIONS
+CREATE TABLE sellerSubscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    sellerId BIGINT,
+    subscriptionPlanId BIGINT,
+    startDate TIMESTAMP,
+    endDate TIMESTAMP,
+    status VARCHAR(20)
+        CHECK (status IN ('active','pending','expired','cancelled')),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fkSubscriptionSeller
+        FOREIGN KEY (sellerId)
+        REFERENCES sellers(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fkSubscriptionPlan
+        FOREIGN KEY (subscriptionPlanId)
+        REFERENCES subscriptionPlans(id)
+);
+
+--------------------------------------------------
+
+-- SUBSCRIPTION PAYMENTS
+CREATE TABLE subscriptionPayments (
+    id BIGSERIAL PRIMARY KEY,
+    sellerSubscriptionId BIGINT,
+    amount DECIMAL(10,2),
+    currency CHAR(3),
+    paymentStatus VARCHAR(20)
+        CHECK (paymentStatus IN ('success','failure')),
+    paymentDate TIMESTAMP,
+    transactionId VARCHAR(255),
+    paymentMethod VARCHAR(50)
+        CHECK (
+            paymentMethod IN (
+                'card',
+                'bank_transfer',
+                'paypal',
+                'other'
+            )
+        ),
+
+    CONSTRAINT fkPaymentSubscription
+        FOREIGN KEY (sellerSubscriptionId)
+        REFERENCES sellerSubscriptions(id)
+        ON DELETE CASCADE
+);
+
+--------------------------------------------------
+
+-- INDUSTRY (HS CODE MASTER)
+CREATE TABLE industry (
+    id BIGSERIAL PRIMARY KEY,
+    hsCode INT,
+    narrative VARCHAR(100)
+);
+
+--------------------------------------------------
+
+-- BUYERS TABLE
+CREATE TABLE buyers (
+    id BIGSERIAL PRIMARY KEY,
+    buyerId UUID,
+    hsCodeId BIGINT,
+    companyName VARCHAR(255),
+    fullName VARCHAR(255),
+    title VARCHAR(255),
+    email VARCHAR(255),
+    phoneNumber VARCHAR(50),
+    countryOfOrigin BIGINT,
+    website VARCHAR(255),
+    socialLink JSONB,
+    description TEXT,
+
+    CONSTRAINT fkBuyerHscode
+        FOREIGN KEY (hsCodeId)
+        REFERENCES industry(id),
+
+    CONSTRAINT fkBuyerCountry
+        FOREIGN KEY (countryOfOrigin)
+        REFERENCES countries(id)
+);
+
+--------------------------------------------------
+
+-- INDEXES (IMPORTANT FOR MATCHING SPEED)
+
+CREATE INDEX idxSellerUser
+ON sellers(userId);
+
+CREATE INDEX idxBuyerHsCode
+ON buyers(hsCodeId);
+
+CREATE INDEX idxBuyerCountry
+ON buyers(countryOfOrigin);
+
+CREATE INDEX idxSellerCountry
+ON sellers(countryOfOrigin);
+
+CREATE INDEX idxSubscriptionSeller
+ON sellerSubscriptions(sellerId);
